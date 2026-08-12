@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 
 type Card = {
   name: string;
@@ -96,6 +96,7 @@ const CARDS: Card[] = [
 ];
 
 const ARENA_FAVORITE = "There and Back Again";
+const SORTED_CARDS = [...CARDS].sort((a, b) => b.share - a.share);
 
 function formatShare(share: number) {
   const percentage = share * 100;
@@ -103,7 +104,7 @@ function formatShare(share: number) {
 }
 
 function rankFor(card: Card) {
-  return [...CARDS].sort((a, b) => b.share - a.share).findIndex(
+  return SORTED_CARDS.findIndex(
     (candidate) => candidate.name === card.name,
   ) + 1;
 }
@@ -111,8 +112,44 @@ function rankFor(card: Card) {
 export default function Home() {
   const [selected, setSelected] = useState<string | null>(null);
   const resultRef = useRef<HTMLDivElement>(null);
+  const cardRefs = useRef(new Map<string, HTMLButtonElement>());
+  const cardPositions = useRef(new Map<string, DOMRect>());
   const revealed = selected !== null;
   const selectedCard = CARDS.find((card) => card.name === selected);
+  const displayedCards = revealed ? SORTED_CARDS : CARDS;
+
+  useLayoutEffect(() => {
+    if (!revealed || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      cardPositions.current.clear();
+      return;
+    }
+
+    displayedCards.forEach((card, rank) => {
+      const element = cardRefs.current.get(card.name);
+      const previous = cardPositions.current.get(card.name);
+      if (!element || !previous) return;
+
+      const current = element.getBoundingClientRect();
+      const deltaX = previous.left - current.left;
+      const deltaY = previous.top - current.top;
+      if (deltaX === 0 && deltaY === 0) return;
+
+      element.animate(
+        [
+          { transform: `translate(${deltaX}px, ${deltaY}px)`, zIndex: 2 },
+          { transform: "translate(0, 0)", zIndex: 2 },
+        ],
+        {
+          duration: 560,
+          delay: rank * 14,
+          easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+          fill: "backwards",
+        },
+      );
+    });
+
+    cardPositions.current.clear();
+  }, [displayedCards, revealed]);
 
   useEffect(() => {
     if (revealed) {
@@ -122,6 +159,14 @@ export default function Home() {
 
   function choose(card: Card) {
     if (!revealed) {
+      cardPositions.current = new Map(
+        CARDS.flatMap((candidate) => {
+          const element = cardRefs.current.get(candidate.name);
+          return element
+            ? ([[candidate.name, element.getBoundingClientRect()]] as const)
+            : [];
+        }),
+      );
       setSelected(card.name);
     }
   }
@@ -178,8 +223,11 @@ export default function Home() {
           </div>
         ) : null}
 
-        <div className={`card-grid${revealed ? " is-revealed" : ""}`}>
-          {CARDS.map((card) => {
+        <div
+          className={`card-grid${revealed ? " is-revealed" : ""}`}
+          aria-label={revealed ? "Cards ranked by modelled pick share" : "Booster pack"}
+        >
+          {displayedCards.map((card) => {
             const isSelected = selected === card.name;
             const isFavorite = card.name === ARENA_FAVORITE;
             const isDimmed = revealed && card.share < 0.05 && !isSelected;
@@ -196,6 +244,10 @@ export default function Home() {
                 }${isDimmed ? " is-dimmed" : ""}`}
                 type="button"
                 key={card.name}
+                ref={(element) => {
+                  if (element) cardRefs.current.set(card.name, element);
+                  else cardRefs.current.delete(card.name);
+                }}
                 onClick={() => choose(card)}
                 disabled={revealed}
                 aria-label={accessibleLabel}

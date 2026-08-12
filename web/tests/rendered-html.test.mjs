@@ -46,9 +46,20 @@ test("contains one locked-choice interaction and all fourteen cards", async () =
   const cardEntries = page.match(/name: "/g) ?? [];
 
   assert.equal(cardEntries.length, 14);
-  assert.match(page, /if \(!revealed\) \{\s*setSelected\(card\.name\);/);
+  assert.match(page, /if \(!revealed\) \{[\s\S]*?setSelected\(card\.name\);/);
   assert.match(page, /disabled=\{revealed\}/);
   assert.match(page, /aria-live="polite"/);
   assert.match(page, /percentage < 0\.1 \? "<0\.1%"/);
   assert.match(page, /card\.share < 0\.05/);
+});
+
+test("sorts the reveal by pick share with a reduced-motion-safe layout animation", async () => {
+  const page = await readFile(new URL("../app/page.tsx", import.meta.url), "utf8");
+
+  assert.match(page, /const SORTED_CARDS = \[\.\.\.CARDS\]\.sort\(\(a, b\) => b\.share - a\.share\)/);
+  assert.match(page, /const displayedCards = revealed \? SORTED_CARDS : CARDS/);
+  assert.match(page, /cardPositions\.current = new Map/);
+  assert.match(page, /element\.animate\(/);
+  assert.match(page, /prefers-reduced-motion: reduce/);
+  assert.match(page, /Cards ranked by modelled pick share/);
 });
