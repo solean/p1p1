@@ -15,7 +15,7 @@ a session.
 | | |
 | --- | --- |
 | **Phase 0 — curation pipeline** | Done. See [README](README.md). |
-| **Phase 1 — playable prototype** | Not started. Next. |
+| **Phase 1 — playable prototype** | Done. See [`web/`](web/). |
 | **Phase 2 — real daily game** | Not started. |
 
 Phase 0 answered the riskiest content question — *can you reliably produce first
@@ -124,9 +124,15 @@ removing cards.
 
 Goal: find out whether the 20-second loop is actually fun. No backend.
 
-* Static page, one pack hardcoded from `out/queue.LTR.json`.
-* Click a card → reveal screen with the modelled crowd split.
-* Test the reveal: is the payoff enough to make you want tomorrow's?
+Implemented in [`web/`](web/):
+
+* Static page, one real pack hardcoded from `out/queue.LTR.json`.
+* Click a card → locked pick and reveal with the modelled crowd split.
+* Responsive, keyboard-accessible presentation of all 14 cards with source
+  attribution and no pre-pick answer leakage.
+
+The remaining work in this phase is product testing: does the reveal payoff make
+people want tomorrow's pack?
 
 Kill criterion: if the reveal feels flat with real data and real art, the concept
 doesn't work and no amount of backend fixes it.

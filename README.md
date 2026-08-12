@@ -4,7 +4,9 @@ Batch pipeline that turns 17Lands draft data into a ranked queue of packs worth
 using as daily puzzles. It answers the riskiest question up front: **can you
 reliably produce first picks that people genuinely disagree about?**
 
-There is no game server here, no UI, no vote storage. Just the content pipeline.
+The repository also contains a no-backend playable prototype in [`web/`](web/).
+There is still no game server or vote storage; the Python package remains the
+content pipeline.
 
 ```bash
 uv venv && uv pip install -e .
@@ -12,6 +14,9 @@ p1p1 sets                 # which sets have usable data
 p1p1 curate BLB           # build a queue for one set
 p1p1 validate BLB         # is the model accurate and calibrated?
 open out/review.BLB.html  # eyeball the result
+
+cd web                    # run the Phase 1 game prototype
+npm install && npm run dev
 ```
 
 Outputs land in `out/`:
@@ -120,4 +125,5 @@ src/p1p1/
   scryfall.py  card art/colors for the report
   report.py    HTML + JSON output
   cli.py       batch entrypoint
+web/            static playable prototype: one pack, one pick, crowd reveal
 ```
