@@ -89,13 +89,16 @@ Three things vary across sets and are detected at runtime rather than assumed:
   AFR starts `user_match_win_rate_bucket, user_n_matches_bucket, draft_id, …`.
   The player-experience column is `user_n_games_bucket` in newer sets and
   `user_n_matches_bucket` in older ones.
-* **Five sets have no opening pick at all.** In `AFR, STX, TMT, ECL, TLA`, pack 0
-  is numbered from pick 1 while later packs start at 0 — the P1P1 row was never
-  exported. Ingest detects this and refuses the set rather than silently
-  curating second picks. This is not an era thing (TMT/ECL/TLA are recent), so
-  re-check new sets as they ship. `--allow-second-pick` overrides.
+* **Five exports omit the opening pick — recoverably.** In `AFR, STX, TMT, ECL,
+  TLA`, pack 0 starts at pick 1 holding one card fewer than a fresh pack. Arena's
+  client log doesn't list P1P1 until after P1P2 is submitted, so the row always
+  has to be back-filled by the collector, and for these five it never made it
+  into the export. Nothing is actually lost: the second-pick row's `pool_`
+  columns hold exactly the card taken first, so ingest puts it back and rebuilds
+  the original pack. Not an era thing (TMT/ECL/TLA are recent), so this is
+  detected per set at runtime rather than kept as a list.
 
-That leaves **27 of 32 sets usable**.
+That makes **32 of 32 sets usable**.
 
 ## Caveats
 

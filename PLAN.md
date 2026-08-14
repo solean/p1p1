@@ -24,8 +24,8 @@ spare:
 
 * **~40% of real packs** clear the "contested" bar (13.9k of 36.3k in HBG, 24.9k
   of 60k in LTR).
-* **27 of 32 Arena sets** are usable.
-* At 90 packs per set that's **~2,400 daily puzzles, or 6.6 years** of content,
+* **All 32 Arena sets** are usable.
+* At 90 packs per set that's **~2,900 daily puzzles, or 7.9 years** of content,
   and the eligible pool is an order of magnitude larger than that.
 
 Content supply is not a risk. Everything below is about whether anyone plays.
@@ -38,7 +38,7 @@ Content supply is not a risk. Everything below is about whether anyone plays.
 fits in a glance.
 
 **Rotate across all Arena-drafted sets.** Nostalgia is a feature — an LTR or KTK
-pack lands differently than the current Standard set. 27 sets is deep enough to
+pack lands differently than the current Standard set. 32 sets is deep enough to
 rotate for years without repeating.
 
 **Packs are curated, not random.** A random P1P1 is usually boring: one obvious
@@ -174,10 +174,11 @@ Arena crowd rather than the site crowd.
 **Answer leakage.** With one pick, the day's answer is trivially spoilable on
 social. Wordle survived this; not worth engineering around.
 
-**Set-data rot.** Five sets (`AFR, STX, TMT, ECL, TLA`) have no P1P1 row in the
-export, and it isn't chronological — recent sets are affected. Ingest detects
-this per set and refuses rather than silently curating second picks, but new sets
-need re-checking as they ship.
+**Set-data rot.** Five sets (`AFR, STX, TMT, ECL, TLA`) ship without a P1P1 row —
+Arena only logs the opening pack after P1P2, and that back-fill is missing from
+their exports. Ingest rebuilds the pack from the second-pick row's pool, so all
+32 sets are usable, but the shape of the defect could change: it isn't
+chronological (TMT/ECL/TLA are recent), so new sets need re-checking as they ship.
 
 **Fan Content Policy.** WotC permits free fan projects but constrains
 monetization. Read it before building a business model on top. 17Lands data is

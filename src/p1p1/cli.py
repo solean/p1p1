@@ -16,16 +16,12 @@ DATA = ROOT / "data"
 OUT = ROOT / "out"
 
 
-def _p1p1(set_code: str, keep_raw: bool, allow_second_pick: bool) -> ingest.P1P1Data:
+def _p1p1(set_code: str, keep_raw: bool) -> ingest.P1P1Data:
     path = DATA / f"p1p1.{set_code}.npz"
     if path.exists():
         return ingest.P1P1Data.load(path)
     print(f"[ingest] streaming {set_code} draft data from 17Lands…", file=sys.stderr)
-    data = ingest.extract(
-        set_code,
-        cache_dir=DATA / "raw" if keep_raw else None,
-        allow_second_pick=allow_second_pick,
-    )
+    data = ingest.extract(set_code, cache_dir=DATA / "raw" if keep_raw else None)
     data.save(path)
     return data
 
@@ -54,11 +50,7 @@ def _rate(queue, pool, predicate) -> str:
 def cmd_curate(args: argparse.Namespace) -> None:
     from .scryfall import fetch
 
-    try:
-        data = _p1p1(args.set, args.keep_raw, args.allow_second_pick)
-    except ingest.MissingFirstPick as exc:
-        print(f"[skip] {exc}", file=sys.stderr)
-        raise SystemExit(2)
+    data = _p1p1(args.set, args.keep_raw)
 
     m = _model(args.set, data, args.l2, args.min_games)
     print(
@@ -124,7 +116,7 @@ def cmd_curate(args: argparse.Namespace) -> None:
 
 
 def cmd_validate(args: argparse.Namespace) -> None:
-    data = _p1p1(args.set, False, args.allow_second_pick)
+    data = _p1p1(args.set, False)
     m = _model(args.set, data, args.l2, args.min_games)
     print(f"{args.set}: {len(data):,} first picks · {len(m.names)} cards")
     print(
@@ -138,8 +130,7 @@ def cmd_validate(args: argparse.Namespace) -> None:
 
 def cmd_sets(args: argparse.Namespace) -> None:
     for code in sets.refresh_sets():
-        flag = "  (no opening pick in export)" if code in sets.NO_FIRST_PICK else ""
-        print(f"{code}{flag}")
+        print(code)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -161,11 +152,6 @@ def main(argv: list[str] | None = None) -> int:
     c.add_argument("--l2", type=float, default=2.0)
     c.add_argument("--min-games", type=int, default=None, help="restrict to experienced drafters")
     c.add_argument("--keep-raw", action="store_true", help="cache the 40-230MB source .gz")
-    c.add_argument(
-        "--allow-second-pick",
-        action="store_true",
-        help="for sets missing the opening pick, curate from the second pick instead",
-    )
     c.add_argument("--seed", type=int, default=0)
     c.set_defaults(func=cmd_curate)
 
@@ -173,7 +159,6 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("set")
     v.add_argument("--l2", type=float, default=2.0)
     v.add_argument("--min-games", type=int, default=None)
-    v.add_argument("--allow-second-pick", action="store_true")
     v.set_defaults(func=cmd_validate)
 
     s = sub.add_parser("sets", help="list sets with published draft data")

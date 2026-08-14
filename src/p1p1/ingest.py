@@ -10,13 +10,17 @@ we discard: the leading columns are comma-free, so a cheap prefix split is
 enough to test pack_number/pick_number, and only surviving rows pay for a real
 csv parse (card names like "Thor, God of Thunder" are quoted).
 
-Two things vary across sets and are handled at runtime rather than assumed:
+Three things vary across sets and are handled at runtime rather than assumed:
 
 * Older files (AFR, and others of that era) are *tar* archives inside the gzip
   despite the `.csv.gz` name, so the CSV starts 512 bytes in.
 * Column order differs, and so does indexing: AFR numbers picks from 1 while MSH
   numbers them from 0. We probe the first rows and take the observed minimum
   rather than hardcoding either convention.
+* Some exports (AFR, STX, TMT, ECL, TLA) omit the opening pick: pack 0 starts at
+  pick 1, holding one card fewer than a fresh pack. Nothing is actually lost --
+  that row's `pool_` columns hold exactly the card taken first -- so we rebuild
+  the original pack rather than skip the set.
 """
 
 from __future__ import annotations
@@ -142,10 +146,6 @@ def _open_stream(set_code: str, cache: Path | None) -> io.TextIOWrapper:
     return stream
 
 
-class MissingFirstPick(Exception):
-    """The set's export has no row for the very first pick of the draft."""
-
-
 def _common_values(counts: Counter, share: float = 0.25) -> list[int]:
     """Values that occur often enough to be real, ignoring stray junk rows."""
     if not counts:
@@ -163,7 +163,8 @@ def _probe_base(
     *within that pack*, and whether the opening pick looks absent. Both the
     numbering base and the presence of the first pick vary by set, so neither
     is assumed. A handful of sets (AFR, STX, TMT, ECL, TLA) number pack 0 from
-    1 while later packs start at 0 -- in those the P1P1 row was never exported.
+    1 while later packs start at 0 -- there the opening row was never exported
+    and `extract` reconstructs it.
     """
     buffered: list[str] = []
     joint: dict[int, Counter] = defaultdict(Counter)
@@ -199,7 +200,6 @@ def extract(
     set_code: str,
     cache_dir: Path | None = None,
     verbose: bool = True,
-    allow_second_pick: bool = False,
 ) -> P1P1Data:
     cache = (cache_dir / f"draft_data_public.{set_code}.PremierDraft.csv.gz") if cache_dir else None
     stream = _open_stream(set_code, cache)
@@ -214,6 +214,13 @@ def extract(
             pack_cols.append((i, len(names)))
             names.append(name[len("pack_card_"):])
     name_to_idx = {n: j for j, n in enumerate(names)}
+    # Cards already taken when the row was written. Only read when the opening
+    # pick is missing and has to be rebuilt from the second-pick row.
+    pool_cols = [
+        (i, name_to_idx[name[len("pool_"):]])
+        for i, name in enumerate(header)
+        if name.startswith("pool_") and name[len("pool_"):] in name_to_idx
+    ]
 
     i_pack_no, i_pick_no = col["pack_number"], col["pick_number"]
     i_pick = col["pick"]
@@ -227,19 +234,23 @@ def extract(
     buffered, pack_base, pick_base, missing = _probe_base(
         stream, i_pack_no, i_pick_no, split_at
     )
-    if missing and not allow_second_pick:
+    if missing and not pool_cols:
         stream.close()
-        raise MissingFirstPick(
-            f"{set_code}: pack {pack_base} is numbered from pick {pick_base} while later "
-            "packs start lower, so the opening pick was never exported. Pass "
-            "allow_second_pick=True to curate from the second pick instead."
+        raise ValueError(
+            f"{set_code}: pack {pack_base} starts at pick {pick_base} while later packs "
+            "start lower, so the opening pick is absent, and this export has no pool_ "
+            "columns to rebuild it from."
         )
 
     first_pack, first_pick = str(pack_base), str(pick_base)
     if verbose:
-        label = "second pick (first is missing)" if missing else "first pick"
+        label = (
+            "rebuilding the unexported first pick from the second-pick row at"
+            if missing
+            else "first pick at"
+        )
         print(
-            f"  {set_code}: {len(names)} cards; using {label} at"
+            f"  {set_code}: {len(names)} cards; {label}"
             f" pack_number={first_pack}, pick_number={first_pick}",
             file=sys.stderr,
         )
@@ -261,16 +272,33 @@ def extract(
             continue
 
         row = next(csv.reader([line]))
-        pick_idx = name_to_idx.get(row[i_pick])
-        if pick_idx is None:
-            dropped += 1
-            continue
-
         pack: list[int] = []
         for ci, card_idx in pack_cols:
             v = row[ci]
             if v and v != "0":
                 pack.extend([card_idx] * int(v))
+
+        if missing:
+            # This row is the second pick, so the pool is exactly the card taken
+            # at the first. Put it back: pack + pool is the opening pack, and the
+            # pooled card is the choice that was made from it.
+            taken: list[int] = []
+            for ci, card_idx in pool_cols:
+                v = row[ci]
+                if v and v != "0":
+                    taken.extend([card_idx] * int(v))
+            if len(taken) != 1:
+                dropped += 1
+                continue
+            pick_idx = taken[0]
+            pack.append(pick_idx)
+        else:
+            found = name_to_idx.get(row[i_pick])
+            if found is None:
+                dropped += 1
+                continue
+            pick_idx = found
+
         if pick_idx not in pack or not 1 < len(pack) <= MAX_PACK:
             dropped += 1
             continue

@@ -22,14 +22,6 @@ KNOWN_SETS = [
     "AFR", "STX",
 ]
 
-# Sets whose export omits the opening pick: pack 0 is numbered from pick 1
-# while later packs start at 0. Unusable for a P1P1 game. Not an era thing --
-# TMT/ECL/TLA are recent -- so ingest re-detects this per set rather than
-# trusting this list, which is here for planning.
-NO_FIRST_PICK = {"AFR", "STX", "TMT", "ECL", "TLA"}
-
-USABLE_SETS = [s for s in KNOWN_SETS if s not in NO_FIRST_PICK]
-
 
 def draft_data_url(set_code: str, event_type: str = "PremierDraft") -> str:
     return f"{S3_BASE}/draft_data/draft_data_public.{set_code}.{event_type}.csv.gz"
