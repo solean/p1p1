@@ -15,8 +15,10 @@ import numpy as np
 
 from .model import PickModel
 
-# Extra mean match wins the underdog needs before we call a pack an "upset".
-UPSET_MARGIN = 0.15
+# Extra games-in-hand win rate the underdog needs before a pack counts as a
+# "win-rate upset". Three points is a real gap on this axis; tighter than that
+# is inside the noise of a few hundred games.
+UPSET_MARGIN = 0.03
 
 
 @dataclass
@@ -107,7 +109,7 @@ def score_pack(
 
     # Does the crowd's favourite differ from the best-performing card among the
     # real contenders? Requires a margin -- without one, noise alone flips this
-    # about half the time. See model.win_rates for why this is a hint, not a fact.
+    # about half the time. See winrate for what this axis can and can't claim.
     upset = False
     if win_rate is not None:
         live = [c for c, p in zip(order, ranked) if p >= 0.12 and not np.isnan(win_rate[c])]

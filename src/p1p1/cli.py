@@ -9,7 +9,7 @@ from pathlib import Path
 
 import numpy as np
 
-from . import ingest, model as model_mod, report, score, sets
+from . import ingest, model as model_mod, report, score, sets, winrate
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
@@ -64,7 +64,13 @@ def cmd_curate(args: argparse.Namespace) -> None:
         i: "".join(sorted((meta.get(n) or {}).get("colors") or []))
         for i, n in enumerate(m.names)
     }
-    wr, _ = model_mod.win_rates(data)
+    wr, gih = winrate.fetch(m.names, args.set, DATA)
+    known = int((~np.isnan(wr)).sum())
+    print(
+        f"[winrate] {known} of {len(m.names)} cards clear the"
+        f" {winrate.MIN_GIH}-game floor",
+        file=sys.stderr,
+    )
 
     # Candidate pool: real packs that were actually opened, deduped. No need to
     # synthesise collation when the dataset is full of genuine boosters.
@@ -94,11 +100,12 @@ def cmd_curate(args: argparse.Namespace) -> None:
         file=sys.stderr,
     )
 
-    report.write_queue(queue, m, OUT / f"queue.{args.set}.json")
+    report.write_queue(queue, m, wr, OUT / f"queue.{args.set}.json")
     report.render(
         queue,
         m,
         meta,
+        wr,
         OUT / f"review.{args.set}.html",
         notes={
             "Set": args.set,
@@ -110,6 +117,7 @@ def cmd_curate(args: argparse.Namespace) -> None:
             "Distinct matchups": str(len({frozenset(s.order[:2]) for s in queue})),
             "Color split": _rate(queue, eligible, lambda s: s.color_split),
             "Win-rate upset": _rate(queue, eligible, lambda s: s.upset),
+            "Win rates": f"{known}/{len(m.names)} cards over {gih.max():,} games max",
         },
     )
     print(f"[done] out/queue.{args.set}.json · out/review.{args.set}.html", file=sys.stderr)
@@ -131,6 +139,18 @@ def cmd_validate(args: argparse.Namespace) -> None:
 def cmd_sets(args: argparse.Namespace) -> None:
     for code in sets.refresh_sets():
         print(code)
+
+
+def cmd_winrates(args: argparse.Namespace) -> None:
+    data = _p1p1(args.set, False)
+    m = _model(args.set, data, args.l2, args.min_games)
+    wr, gih = winrate.fetch(m.names, args.set, DATA)
+    order = [i for i in np.argsort(-np.nan_to_num(wr, nan=-1)) if not np.isnan(wr[i])]
+    print(f"{args.set}: {len(order)} of {len(m.names)} cards over the {winrate.MIN_GIH}-game floor")
+    for label, rows in (("best", order[:10]), ("worst", order[-10:])):
+        print(f"  {label}:")
+        for i in rows:
+            print(f"    {wr[i] * 100:5.1f}%  n={gih[i]:>7,}  {m.names[i]}")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -160,6 +180,12 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--l2", type=float, default=2.0)
     v.add_argument("--min-games", type=int, default=None)
     v.set_defaults(func=cmd_validate)
+
+    w = sub.add_parser("winrates", help="games-in-hand win rate per card")
+    w.add_argument("set")
+    w.add_argument("--l2", type=float, default=2.0)
+    w.add_argument("--min-games", type=int, default=None)
+    w.set_defaults(func=cmd_winrates)
 
     s = sub.add_parser("sets", help="list sets with published draft data")
     s.set_defaults(func=cmd_sets)

@@ -27,6 +27,11 @@ def draft_data_url(set_code: str, event_type: str = "PremierDraft") -> str:
     return f"{S3_BASE}/draft_data/draft_data_public.{set_code}.{event_type}.csv.gz"
 
 
+def game_data_url(set_code: str, event_type: str = "PremierDraft") -> str:
+    """Per-game results, used for card win rates. Separate, larger download."""
+    return f"{S3_BASE}/game_data/game_data_public.{set_code}.{event_type}.csv.gz"
+
+
 def refresh_sets(session: requests.Session | None = None) -> list[str]:
     """Re-scrape the published set list so the universe stays current."""
     session = session or requests.Session()

@@ -2,7 +2,8 @@
 
 The whole point of this stage is eyeballing: does the model actually surface
 packs where you'd hesitate? Numbers alone won't answer that, so the report shows
-the real card art with the predicted crowd split underneath.
+the real card art with the predicted crowd split underneath, and the card's
+games-in-hand win rate under that.
 """
 
 from __future__ import annotations
@@ -10,6 +11,8 @@ from __future__ import annotations
 import html
 import json
 from pathlib import Path
+
+import numpy as np
 
 from .model import PickModel
 from .score import PackScore
@@ -44,15 +47,25 @@ h1 { font-size:22px; margin:0 0 4px; }
 .c.dim img { opacity:.34; }
 .n { font-size:12px; margin-top:5px; line-height:1.3; }
 .p { font-variant-numeric:tabular-nums; font-weight:600; }
+.wr { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; margin-top:3px; }
 .bar { height:3px; background:var(--line); border-radius:2px; margin-top:4px; overflow:hidden; }
 .bar i { display:block; height:100%; background:var(--accent); }
 """
+
+
+def best_win_rate(pack: list[int], model: PickModel, win_rate: np.ndarray) -> str | None:
+    """Highest-win-rate card in the pack, or None if none clears the sample floor."""
+    known = [c for c in pack if not np.isnan(win_rate[c])]
+    if not known:
+        return None
+    return model.names[max(known, key=lambda c: win_rate[c])]
 
 
 def render(
     scores: list[PackScore],
     model: PickModel,
     meta: dict[str, dict],
+    win_rate: np.ndarray,
     out_path: Path,
     notes: dict[str, str] | None = None,
 ) -> None:
@@ -71,15 +84,20 @@ def render(
                 if img
                 else f'<div class="n">{html.escape(name)}</div>'
             )
+            wr = float(win_rate[card])
             cards.append(
                 f'<div class="c{dim}">{img_tag}'
                 f'<div class="n"><span class="p">{p * 100:.1f}%</span></div>'
-                f'<div class="bar"><i style="width:{min(p * 100, 100):.1f}%"></i></div></div>'
+                f'<div class="bar"><i style="width:{min(p * 100, 100):.1f}%"></i></div>'
+                f'<div class="wr">{"—" if np.isnan(wr) else f"{wr * 100:.1f}%"} GIH</div></div>'
             )
 
         tags = [f'<span class="tag">top {s.top1 * 100:.0f}%</span>',
                 f'<span class="tag">gap {s.gap * 100:.0f}pt</span>',
                 f'<span class="tag">{s.contenders} live</span>']
+        best = best_win_rate(s.pack, model, win_rate)
+        if best:
+            tags.append(f'<span class="tag">best WR {html.escape(best)}</span>')
         if s.color_split:
             tags.append('<span class="tag hot">color split</span>')
         if s.upset:
@@ -106,14 +124,21 @@ def render(
     )
 
 
-def write_queue(scores: list[PackScore], model: PickModel, out_path: Path) -> None:
+def write_queue(
+    scores: list[PackScore], model: PickModel, win_rate: np.ndarray, out_path: Path
+) -> None:
     """Machine-readable queue: what the game server would actually serve."""
     payload = [
         {
             "cards": [model.names[c] for c in s.pack],
             "predicted": {model.names[c]: round(float(p), 5) for c, p in zip(s.pack, s.probs)},
+            "win_rate": {
+                model.names[c]: (None if np.isnan(win_rate[c]) else round(float(win_rate[c]), 4))
+                for c in s.pack
+            },
             "answer": model.names[s.order[0]],
             "runner_up": model.names[s.order[1]] if len(s.order) > 1 else None,
+            "best_win_rate": best_win_rate(s.pack, model, win_rate),
             "metrics": {
                 "top1": round(s.top1, 4),
                 "gap": round(s.gap, 4),

@@ -12,6 +12,7 @@ content pipeline.
 uv venv && uv pip install -e .
 p1p1 sets                 # which sets have usable data
 p1p1 curate BLB           # build a queue for one set
+p1p1 winrates BLB         # games-in-hand win rate per card
 p1p1 validate BLB         # is the model accurate and calibrated?
 open out/review.BLB.html  # eyeball the result
 
@@ -21,7 +22,7 @@ npm install && npm run dev
 
 Outputs land in `out/`:
 
-* `queue.<SET>.json` — the packs, with predicted crowd split per card
+* `queue.<SET>.json` — the packs, with predicted crowd split and win rate per card
 * `review.<SET>.html` — the same thing with card art, for judging by eye
 
 ## How it works
@@ -52,7 +53,16 @@ times in three. Accuracy alone wouldn't justify printing "37% of players took
 this", so `p1p1 validate` also checks calibration; predicted shares track
 observed frequencies closely across the whole range on both sets.
 
-**3. Score.** Candidate packs are *real observed packs*, not synthesized
+**3. Win rates.** The draft files say what the crowd *picked*, never whether the
+pick was any good. That comes from the separate 17Lands game-data export — one
+row per game, a column per card for opening hand, drawn and tutored — streamed
+once per set and reduced to two integers per card. The axis is GIH WR: games won
+among games where the card was ever in hand. Still confounded (better decks win
+more), but measured per game rather than per drafter, so it doesn't inherit the
+whole deck the way "mean match wins of everyone who first-picked it" does. Cards
+under 200 games in hand are left unrated rather than guessed at.
+
+**4. Score.** Candidate packs are *real observed packs*, not synthesized
 collation — the dataset is full of genuine boosters, so there's no need to model
 booster sheets. Each is scored on:
 
@@ -62,7 +72,7 @@ booster sheets. Each is scored on:
 | `spread` | how much probability sits outside the favourite |
 | `quality` | strength of the best card (a coin flip between two 9th-picks is not a puzzle) |
 | `color_split` | do the two leading cards commit you to different colors |
-| `upset` | crowd favourite differs from the best win-rate card |
+| `upset` | crowd favourite differs from the best win-rate card by 3+ points |
 
 Filters reject packs with an obvious pick (`top1 > 0.55`) or no real decision
 (`top1 < 0.18`). `diversify` then caps how often the same *matchup* recurs —
@@ -81,7 +91,7 @@ Source: [17Lands public datasets](https://www.17lands.com/public_datasets),
 CC-BY 4.0. Card art and colors from [Scryfall](https://scryfall.com). Both are
 cached under `data/`.
 
-Three things vary across sets and are detected at runtime rather than assumed:
+Four things vary across sets and are detected at runtime rather than assumed:
 
 * **Some files are tar inside gzip** despite the `.csv.gz` name (AFR and others),
   so the CSV starts 512 bytes in.
@@ -97,17 +107,21 @@ Three things vary across sets and are detected at runtime rather than assumed:
   columns hold exactly the card taken first, so ingest puts it back and rebuilds
   the original pack. Not an era thing (TMT/ECL/TLA are recent), so this is
   detected per set at runtime rather than kept as a list.
+* **Game-data columns come in two shapes.** Newer exports interleave the per-card
+  columns (`opening_hand_X, drawn_X, tutored_X, deck_X, sideboard_X`); the
+  AFR/STX era writes one block per kind and has no `tutored_` columns at all.
+  The win-rate pass derives the geometry from the header and proves the card
+  order matches across kinds before trusting a single number.
 
 That makes **32 of 32 sets usable**.
 
 ## Caveats
 
-* **`win_rates` is a hint, not truth.** It's the mean event match wins of
-  drafters who took each card first, which is heavily confounded — stronger
-  players take better cards, and match wins reflect the whole deck, not the
-  first pick. Good enough to surface disagreement, not to declare a pick
-  correct. If you want a defensible "right answer" axis, pull GIH win rate from
-  the separate game-data files.
+* **GIH win rate is a measurement, not a verdict.** It says how a card performed
+  once it was in hand, which is confounded by deck and by player: strong drafters
+  build better decks around better cards. It is fair to print "this card won
+  63.1% of the games it was drawn in"; it is not fair to print "your pick was
+  wrong". Cards under 200 games in hand are left unrated.
 * **The crowd is Arena Premier Draft players**, skewed toward the enfranchised.
   `--min-games` restricts further to experienced drafters, which shifts what
   "the crowd" means — worth deciding deliberately rather than by default.
@@ -124,6 +138,7 @@ src/p1p1/
   sets.py      set universe + S3 URLs
   ingest.py    stream 17Lands data, extract P1P1 choices
   model.py     conditional logit fit + evaluation
+  winrate.py   games-in-hand win rate per card, from the game-data export
   score.py     contestedness metrics, filters, diversification
   scryfall.py  card art/colors for the report
   report.py    HTML + JSON output

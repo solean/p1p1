@@ -175,21 +175,3 @@ def calibration(
         rows.append((lo, float(probs[sel].mean()), float(actual[sel].mean()), int(sel.sum())))
     return rows
 
-
-def win_rates(data: P1P1Data, min_n: int = 200) -> tuple[np.ndarray, np.ndarray]:
-    """Mean event match wins of drafters who took each card P1P1, and the count.
-
-    This is a rough "was it actually a good pick" signal that costs no extra
-    download, but it is heavily confounded -- stronger players draft better
-    cards, and match wins reflect the whole deck, not the first pick. Treat it
-    as a spice heuristic for surfacing disagreement, not as ground truth.
-    """
-    k = len(data.names)
-    valid = data.wins >= 0
-    picks, wins = data.picks[valid].astype(np.int64), data.wins[valid].astype(float)
-
-    counts = np.bincount(picks, minlength=k).astype(float)
-    totals = np.bincount(picks, weights=wins, minlength=k)
-    means = np.divide(totals, counts, out=np.full(k, np.nan), where=counts > 0)
-    means[counts < min_n] = np.nan
-    return means, counts

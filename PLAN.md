@@ -16,7 +16,7 @@ a session.
 | --- | --- |
 | **Phase 0 — curation pipeline** | Done. See [README](README.md). |
 | **Phase 1 — playable prototype** | Done. See [`web/`](web/). |
-| **Phase 2 — real daily game** | Not started. Scoped below; decisions 1, 3, 5, 6 gate it. |
+| **Phase 2 — real daily game** | Not started. Scoped below; decisions 1, 4, 5 gate it. |
 
 Phase 0 answered the riskiest content question — *can you reliably produce first
 picks people genuinely disagree about?* — and the answer is yes, with room to
@@ -54,12 +54,19 @@ matched-the-favourite streak for the Wordle habit loop.
 payoff has to be the reveal: crowd split across the pack, the win-rate-optimal
 card next to it, and one line of *why*.
 
+**The win-rate axis is GIH, and it never says "wrong".** Card strength comes from
+the 17Lands game-data export: games won among games where the card was in hand,
+cards under 200 such games left unrated. It replaced the mean event match wins of
+everyone who first-picked a card, which was confounded by the drafter's whole
+deck. The reveal prints the number and names the pack's best card; it does not
+tell anyone their pick was incorrect. Shipped — see the reveal in [`web/`](web/).
+
 ---
 
 ## Open decisions
 
-Answer 1, 3, 5, and 6 before writing any Phase 2 schema — each one changes what
-gets stored. 4 and 7 can wait until there is something to lay out or a URL to
+Answer 1, 4, and 5 before writing any Phase 2 schema — each one changes what
+gets stored. 3 and 6 can wait until there is something to lay out or a URL to
 move.
 
 ### 1. Whose crowd is "the answer"? — the important one
@@ -102,32 +109,21 @@ shown_share = (k · model_p + votes) / (k + n)
 with a pseudo-count `k` around 100. Continuous, honest at every n, converges to
 the real distribution once traffic justifies it.
 
-### 3. Win-rate axis
-
-`model.win_rates` currently uses mean event match wins of drafters who took each
-card first. It costs no extra download, but it's badly confounded — stronger
-players take better cards, and match wins reflect the whole deck. Good enough to
-*surface* disagreement, not to tell a player they were wrong.
-
-If the reveal is going to assert "the better pick was X," pull GIH win rate from
-the separate 17Lands game-data files first. Decide before Phase 2, because it
-changes what the reveal is allowed to claim.
-
-### 4. Pack presentation
+### 3. Pack presentation
 
 Real packs are 14–15 cards. Showing all of them is authentic and most of them
 are obviously unpickable. Trimming to the live contenders is friendlier on
 mobile but leaks the answer. **Lean authentic**; solve it with layout, not by
 removing cards.
 
-### 5. Day boundary
+### 4. Day boundary
 
 UTC, not local midnight. One global puzzle means one tally row, one cache key,
 and share text that can't disagree between two people in different timezones.
 Local midnight buys a friendlier reset hour at the cost of per-timezone puzzle
 keys and a tally that has to be sharded by them. Not worth it.
 
-### 6. Identity
+### 5. Identity
 
 A signed anonymous cookie, issued on first visit. One row per player per day,
 keyed on it. Requiring an account before the first pick puts a login wall in
@@ -139,7 +135,7 @@ Because the answer key is the Arena model, ballot stuffing cannot move a score.
 That deletes most of the anti-abuse work a vote-scored game would need — one
 more reason decision 1 goes the way it does.
 
-### 7. Where it lives
+### 6. Where it lives
 
 Currently an OpenAI Sites project (`web/.openai/hosting.json`). A daily-habit
 product with share links and search traffic wants its own domain. Decide before
@@ -224,8 +220,8 @@ malformed new-set header), `schedule` determinism and append-only-ness, and the
 Scale is trivial — one insert per player per day, one aggregate per day.
 Don't over-build this.
 
-**Cut for v1:** personal stats, accounts, GIH win rates unless decision 3 says
-otherwise, and every mode in "open questions for later".
+**Cut for v1:** personal stats, accounts, and every mode in "open questions for
+later".
 
 ### Phase 3 — retention
 

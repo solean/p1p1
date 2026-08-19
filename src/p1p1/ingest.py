@@ -121,13 +121,17 @@ def _untar_if_needed(binary: io.BufferedReader) -> io.BufferedReader:
     return io.BufferedReader(_ReadShim(extracted))
 
 
-def _open_stream(set_code: str, cache: Path | None) -> io.TextIOWrapper:
-    """Yield a decompressed text stream, from local cache if we have it."""
+def open_stream(url: str, cache: Path | None) -> io.TextIOWrapper:
+    """Yield a decompressed text stream, from local cache if we have it.
+
+    Shared with `winrate`, which streams the game-data files out of the same
+    bucket with the same gzip/tar quirks.
+    """
     if cache and cache.exists():
         raw = io.BufferedReader(gzip.open(cache, "rb"))  # type: ignore[arg-type]
         return io.TextIOWrapper(_untar_if_needed(raw), encoding="utf-8", newline="")
 
-    resp = requests.get(draft_data_url(set_code), stream=True, timeout=120)
+    resp = requests.get(url, stream=True, timeout=120)
     resp.raise_for_status()
     resp.raw.decode_content = False  # S3 serves the .gz as-is; we want raw bytes
 
@@ -138,7 +142,7 @@ def _open_stream(set_code: str, cache: Path | None) -> io.TextIOWrapper:
             for chunk in resp.iter_content(chunk_size=1 << 20):
                 fh.write(chunk)
         tmp.rename(cache)
-        return _open_stream(set_code, cache)
+        return open_stream(url, cache)
 
     raw = io.BufferedReader(gzip.GzipFile(fileobj=resp.raw))  # type: ignore[arg-type]
     stream = io.TextIOWrapper(_untar_if_needed(raw), encoding="utf-8", newline="")
@@ -202,7 +206,7 @@ def extract(
     verbose: bool = True,
 ) -> P1P1Data:
     cache = (cache_dir / f"draft_data_public.{set_code}.PremierDraft.csv.gz") if cache_dir else None
-    stream = _open_stream(set_code, cache)
+    stream = open_stream(draft_data_url(set_code), cache)
 
     header = next(csv.reader([stream.readline()]))
     col = {name: i for i, name in enumerate(header)}

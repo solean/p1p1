@@ -317,6 +317,10 @@ h1 {
   background: rgba(31, 61, 42, 0.93);
 }
 
+.badge-winrate {
+  background: rgba(93, 62, 106, 0.93);
+}
+
 .card-info {
   display: flex;
   flex: 1;
@@ -380,6 +384,19 @@ h1 {
 
 .is-selected .share-fill {
   background: var(--gold);
+}
+
+.win-rate {
+  color: var(--muted);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: 0.6rem;
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  padding-top: 5px;
+}
+
+.is-selected .win-rate {
+  color: var(--ink);
 }
 
 .tomorrow-note {
