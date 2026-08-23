@@ -5,15 +5,17 @@ from __future__ import annotations
 import argparse
 import pickle
 import sys
+from datetime import date
 from pathlib import Path
 
 import numpy as np
 
-from . import ingest, model as model_mod, report, score, sets, winrate
+from . import ingest, model as model_mod, report, schedule as schedule_mod, score, sets, winrate
 
 ROOT = Path(__file__).resolve().parents[2]
 DATA = ROOT / "data"
 OUT = ROOT / "out"
+CONTENT = ROOT / "content"
 
 
 def _p1p1(set_code: str, keep_raw: bool) -> ingest.P1P1Data:
@@ -136,6 +138,16 @@ def cmd_validate(args: argparse.Namespace) -> None:
         print(f"    p>={lo:<4.2f}  predicted {pred:.3f}  actual {actual:.3f}  n={n:,}")
 
 
+def cmd_schedule(args: argparse.Namespace) -> None:
+    total, added = schedule_mod.build_schedule(
+        OUT, DATA, CONTENT / "schedule.json", start_date=args.start
+    )
+    print(
+        f"[done] content/schedule.json · {total} days ({added} added)",
+        file=sys.stderr,
+    )
+
+
 def cmd_sets(args: argparse.Namespace) -> None:
     for code in sets.refresh_sets():
         print(code)
@@ -186,6 +198,18 @@ def main(argv: list[str] | None = None) -> int:
     w.add_argument("--l2", type=float, default=2.0)
     w.add_argument("--min-games", type=int, default=None)
     w.set_defaults(func=cmd_winrates)
+
+    schedule_parser = sub.add_parser(
+        "schedule", help="append curated queues to the immutable daily schedule"
+    )
+    schedule_parser.add_argument(
+        "--start",
+        type=date.fromisoformat,
+        default=None,
+        metavar="YYYY-MM-DD",
+        help="first UTC date when creating a schedule (default: today)",
+    )
+    schedule_parser.set_defaults(func=cmd_schedule)
 
     s = sub.add_parser("sets", help="list sets with published draft data")
     s.set_defaults(func=cmd_sets)

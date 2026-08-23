@@ -45,11 +45,12 @@ def _lookup(session: requests.Session, names: list[str], set_code: str | None) -
 def fetch(names: list[str], set_code: str, cache_dir: Path) -> dict[str, dict]:
     """Resolve card metadata by name, preferring printings from `set_code`."""
     cache = cache_dir / f"scryfall.{set_code}.json"
-    if cache.exists():
-        return json.loads(cache.read_text())
-
+    meta = json.loads(cache.read_text()) if cache.exists() else {}
     session = requests.Session()
-    meta = _lookup(session, names, set_code)
+
+    missing = [n for n in names if n not in meta]
+    if missing:
+        meta.update(_lookup(session, missing, set_code))
 
     # Bonus-sheet and special-guest cards aren't printed in the set itself.
     missing = [n for n in names if n not in meta]
@@ -61,6 +62,24 @@ def fetch(names: list[str], set_code: str, cache_dir: Path) -> dict[str, dict]:
     for name in list(meta):
         if " // " in name:
             meta.setdefault(name.split(" // ")[0], meta[name])
+
+    # Arena prefixes rebalanced cards with "A-", while Scryfall indexes the
+    # underlying card name. Preserve the Arena name as an alias.
+    aliases = {name: name[2:] for name in names if name.startswith("A-") and name not in meta}
+    if aliases:
+        resolved = _lookup(session, list(aliases.values()), None)
+        for arena_name, base_name in aliases.items():
+            card = next(
+                (
+                    value
+                    for scryfall_name, value in resolved.items()
+                    if scryfall_name == base_name
+                    or scryfall_name.startswith(f"{base_name} // ")
+                ),
+                None,
+            )
+            if card is not None:
+                meta[arena_name] = card
 
     cache.parent.mkdir(parents=True, exist_ok=True)
     cache.write_text(json.dumps(meta, indent=1))
