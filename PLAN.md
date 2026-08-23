@@ -16,7 +16,7 @@ a session.
 | --- | --- |
 | **Phase 0 — curation pipeline** | Done. See [README](README.md). |
 | **Phase 1 — playable prototype** | Done. See [`web/`](web/). |
-| **Phase 2 — real daily game** | Not started. Scoped below; decisions 1, 4, 5 gate it. |
+| **Phase 2 — real daily game** | Implemented in [`web/`](web/); launch configuration and product testing remain. |
 
 Phase 0 answered the riskiest content question — *can you reliably produce first
 picks people genuinely disagree about?* — and the answer is yes, with room to
@@ -37,6 +37,11 @@ Content supply is not a risk. Everything below is about whether anyone plays.
 **One pack, one pick, once a day.** Not a partial draft. The whole interaction
 fits in a glance.
 
+**Reset at UTC midnight.** One global puzzle means one tally row, one cache key,
+and share text that cannot disagree between players in different timezones.
+Local midnight is friendlier locally but would require per-timezone puzzle keys
+and split tallies.
+
 **Rotate across all Arena-drafted sets.** Nostalgia is a feature — an LTR or KTK
 pack lands differently than the current Standard set. 32 sets is deep enough to
 rotate for years without repeating.
@@ -49,6 +54,21 @@ ranks them by predicted disagreement. Curation *is* the product.
 close between two or three cards; a bare right/wrong verdict feels arbitrary and
 burns trust. Show "you picked the #2 card, 23% agreed." Keep a binary
 matched-the-favourite streak for the Wordle habit loop.
+
+**The Arena crowd is the immutable answer key.** Score percentiles and the
+matched-the-favourite streak against the fitted 17Lands pick shares frozen with
+the scheduled pack. After a player votes, show the site's live split beside the
+Arena split with its exact sample size. Site votes never change that day's score
+or streak. This avoids a cold start, moving outcomes, ballot-stuffing incentives,
+and the feedback loop where players try to predict the site's previous players
+instead of making their own draft pick.
+
+**Players use anonymous browser identities.** The server issues a persistent,
+signed random identifier in an `HttpOnly`, `Secure`, `SameSite=Lax` cookie and
+enforces one vote per `(day, player_id)`. No account, email, or fingerprinting is
+required. Clearing the cookie starts a new identity; that is acceptable because
+site votes cannot affect scores. Optional accounts can add cross-device streaks
+later.
 
 **The reveal carries the retention.** The input is a 20-second decision, so the
 payoff has to be the reveal: crowd split across the pack, the win-rate-optimal
@@ -63,84 +83,14 @@ tell anyone their pick was incorrect. Shipped — see the reveal in [`web/`](web
 
 ---
 
-## Open decisions
+## Open decision
 
-Answer 1, 4, and 5 before writing any Phase 2 schema — each one changes what
-gets stored. 3 and 6 can wait until there is something to lay out or a URL to
-move.
+### Where it lives
 
-### 1. Whose crowd is "the answer"? — the important one
-
-Three candidate answer keys:
-
-| | source | properties |
-| --- | --- | --- |
-| **(a) Site crowd** | your own players' votes | matches the original pitch; needs traffic; gameable |
-| **(b) Arena crowd** | the fitted model over real 17Lands drafts | available day one, stable, ungameable, huge n |
-| **(c) Win rate** | game-data files | "correct" rather than popular; confounded |
-
-**Recommendation: score against (b), display (a) alongside it.**
-
-The reason is a feedback loop that's easy to miss. If the score is "did you match
-*this site's* crowd," players stop drafting and start playing a Keynesian beauty
-contest — picking what they think others will pick. Consensus compounds, packs
-that were 40/35/25 collapse toward the favourite, and the puzzle degrades over
-exactly the timescale you're trying to build a habit on. Scoring against tens of
-thousands of real Arena drafters who have never heard of the site breaks that
-loop entirely, and it is still honestly "the crowdsourced pick" — just a much
-larger and more legitimate crowd.
-
-Displaying the site's own split next to it is then a *feature*, not the answer
-key: "the internet took the rare; you and 61% of players here took the common."
-Divergence between the two crowds is interesting content in its own right.
-
-This also means there is no cold start at all. Day one has a real answer.
-
-### 2. If the site crowd ever becomes the answer, how do you blend?
-
-Should you go with (a) after all, don't hard-switch at some vote threshold —
-early and late players would see different answers for the same puzzle. Use the
-model as a Dirichlet prior and update:
-
-```
-shown_share = (k · model_p + votes) / (k + n)
-```
-
-with a pseudo-count `k` around 100. Continuous, honest at every n, converges to
-the real distribution once traffic justifies it.
-
-### 3. Pack presentation
-
-Real packs are 14–15 cards. Showing all of them is authentic and most of them
-are obviously unpickable. Trimming to the live contenders is friendlier on
-mobile but leaks the answer. **Lean authentic**; solve it with layout, not by
-removing cards.
-
-### 4. Day boundary
-
-UTC, not local midnight. One global puzzle means one tally row, one cache key,
-and share text that can't disagree between two people in different timezones.
-Local midnight buys a friendlier reset hour at the cost of per-timezone puzzle
-keys and a tally that has to be sharded by them. Not worth it.
-
-### 5. Identity
-
-A signed anonymous cookie, issued on first visit. One row per player per day,
-keyed on it. Requiring an account before the first pick puts a login wall in
-front of a twenty-second game and kills the funnel; accounts can come later,
-optional, for cross-device streaks. `web/app/chatgpt-auth.ts` is scaffolding
-from the template and is not wired to anything.
-
-Because the answer key is the Arena model, ballot stuffing cannot move a score.
-That deletes most of the anti-abuse work a vote-scored game would need — one
-more reason decision 1 goes the way it does.
-
-### 6. Where it lives
-
-Currently an OpenAI Sites project (`web/.openai/hosting.json`). A daily-habit
-product with share links and search traffic wants its own domain. Decide before
-the first real user, because migrating URLs after people have bookmarked and
-shared them costs more than moving now.
+The app is currently an OpenAI Sites project (`web/.openai/hosting.json`). A
+daily-habit product with share links and search traffic wants its own domain.
+Decide before the first real user, because migrating URLs after people have
+bookmarked and shared them costs more than moving now.
 
 ---
 
@@ -165,57 +115,40 @@ doesn't work and no amount of backend fixes it.
 
 ### Phase 2 — real daily game
 
-The shape is a lookup, not a computation: content is already generated, and all
-32 sets of queues are about 3 MB of JSON. That fits in the deploy bundle, so the
-read path needs no database at all. The only dynamic thing is the site's own
-vote split.
+The shape is a lookup, not a computation: immutable puzzle content ships in the
+deploy bundle; only the site's own vote split is dynamic.
 
-**2a. Content becomes a schedule.** Today `curate` writes one `out/queue.<SET>.json`
-per set, with no identity per pack, and `diversify` resets its matchup counter
-every run — so there is nothing stopping two sets from shipping the same pairing
-a week apart.
+**2a. Content schedule — shipped.** `p1p1 schedule` consumes every
+`out/queue.<SET>.json`, assigns a stable hash ID to each pack, interleaves sets,
+dedupes pack IDs and top-two matchups globally, assigns UTC dates, and writes
+`content/schedule.json`. Re-running appends without moving shipped days. The
+artifact carries 17Lands/Scryfall attribution and a `why` field, and the web build
+copies it into the deploy bundle.
 
-* Stable pack ID: hash of set plus sorted card names. Everything below depends
-  on it.
-* `p1p1 schedule`: consume every queue, interleave sets, dedupe globally on pack
-  ID *and* on the top-two matchup, assign UTC dates, emit `content/schedule.json`.
-* Append-only. Shipped days freeze; re-running never reshuffles history.
-* Cache invalidation. `curate` currently reuses `data/*.npz` and `model.*.pkl`
-  unconditionally, so changing `--l2`, `--min-games`, or the model code silently
-  reuses the old fit. Key the cache on parameters plus code version.
-* Stop persisting the model as a pickle. θ and names into npz or JSON: portable,
-  version-stable, and not arbitrary code execution on a file CI will fetch.
-* Emit 17Lands and Scryfall attribution into the generated artifacts, not just
-  the README.
-* Add the `why` field to the schema now even though the copy comes later.
+Pipeline hardening still open: cache expensive artifacts by their inputs and
+parameters, and replace persisted model pickles with a portable data format.
 
-**2b. The service.** Two tables, no more: `vote(day, player_id, card, created_at)`
-with a unique index on `(day, player_id)`, and `tally(day, card, n)` incremented
-on submit. Puzzles stay static — immutable content does not belong in a database.
-Routes: today's puzzle, submit-and-reveal, and one dated puzzle for the archive.
-D1 has to actually be bound (`.openai/hosting.json` sets it to `null` today, and
-the db helper throws by design until it isn't); `web/examples/d1/` is the pattern
-to copy. The build also has to ship `content/schedule.json`, which today's plugin
-doesn't copy.
+**2b. Service — shipped.** D1 stores one `vote` per `(day, player_id)` plus a
+small `tally(day, card, n)` aggregate. The vote also records answer time and
+whether the player shared. Public puzzle responses omit Arena shares until a
+successful pick; submit-and-reveal, dated archive, image, social image, share,
+and player-deletion routes use a signed anonymous browser identity. The D1
+binding is `DB`; immutable puzzles never enter the database.
 
-**2c. Client.** The prototype hands the client every card's share up front. That
-is correct for a fixture and fatal for a game: the payload has to split into a
-pack before the pick and a reveal after it. Beyond that — routes for today, the
-archive, and a dated day; pick and streak persisted server-side by cookie so a
-refresh doesn't erase the day; a per-day share card and OG image, which is the
-growth mechanism and not decoration; real loading, error, and empty states;
-card art cached through R2 or the Worker cache rather than hotlinked to Scryfall
-on every view; the hardcoded LOTR narrative strings deleted; and the event
-capture behind the four metrics below, since a launch you can't measure teaches
-you nothing. Time-to-answer needs a timer started at pack render.
+**2c. Client — shipped.** Today, archive, dated puzzle, loading, error, empty,
+restored-pick, and reveal states use the generated schedule. All real pack cards
+remain visible before picking. Card art is same-origin and cached through the
+Worker/Cloudflare Images path. The reveal shows Arena and live site shares,
+sample size, win rate, streak, explanation, and share result; answer timing starts
+when the pack mounts. A privacy page exposes deletion of the anonymous identity
+and its vote history.
 
-**2d. Gates.** There is no CI. Lint, typecheck, the web tests, and Python tests
-on every push. The web tests currently regex the source for a couple of
-assertions — replace those with the real path: pick, reveal, persist, one vote
-enforced. There are no Python tests at all; the highest-value targets are
-`ingest.extract` (tar vs plain, numbering base, the rebuilt opening pick, a
-malformed new-set header), `schedule` determinism and append-only-ness, and the
-`score` thresholds. One lockfile, not two.
+**2d. Gates — shipped for the current contracts.** CI is configured to run Python tests, the
+production web build, behavior-level vote/reveal persistence tests, lint, and
+typecheck. Schedule tests cover stable IDs, interleaving, deterministic output,
+append-only history, and conflict rejection. Bun is the only web lockfile.
+Broader regression coverage for `ingest.extract` and scoring thresholds remains
+pipeline hardening, not a launch-path dependency.
 
 Scale is trivial — one insert per player per day, one aggregate per day.
 Don't over-build this.
@@ -260,15 +193,16 @@ chronological (TMT/ECL/TLA are recent), so new sets need re-checking as they shi
 **Silent staleness.** Every expensive artifact — extracted picks, fitted model,
 Scryfall metadata — is reused whenever the file exists, with no key on the inputs
 that produced it. A changed source file or a changed model parameter therefore
-produces the *old* answer key with no warning. Fixed in 2a; until then, assume
-any regenerated queue is only as fresh as `data/`.
+produces the *old* answer key with no warning. Until cache keys ship, assume any
+regenerated queue is only as fresh as `data/`.
 
 **Fan Content Policy.** WotC permits free fan projects but constrains
 monetization. Read it before building a business model on top. 17Lands data is
 CC-BY 4.0 and requires attribution; Scryfall asks for attribution and caching.
-Neither attribution reaches the generated artifacts today — only the README —
-and storing a player cookie and votes brings a privacy policy and a deletion
-path with it.
+Attribution now travels with the generated schedule and appears in the app;
+Scryfall images are cached through the Worker/Cloudflare Images path. The app
+also publishes its anonymous-data policy and exposes deletion. Monetization still
+needs a separate Fan Content Policy review.
 
 ---
 

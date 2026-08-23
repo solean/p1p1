@@ -1,26 +1,68 @@
-# P1P1 web prototype
+# P1P1 web app
 
-Phase 1 of P1P1: one real *The Lord of the Rings: Tales of Middle-earth* pack,
-one locked first pick, and an immediate reveal — the modelled Arena crowd split
-plus each card's 17Lands games-in-hand win rate, with the pack's best-performing
-card called out. Both numbers come from `out/queue.LTR.json`; the fixture is
-embedded so the prototype has no backend or runtime data dependency.
+The production daily game serves one immutable scheduled pack per UTC day. A
+player gets a signed anonymous browser cookie, can submit one pick per day, and
+then sees:
+
+- the fitted 17Lands Arena pick split and rank;
+- the live P1P1 site split with its exact sample size;
+- 17Lands games-in-hand win rates;
+- a matched-the-Arena-favourite streak.
+
+Puzzle content is bundled from `../content/schedule.json`; only votes and
+aggregate tallies live in Cloudflare D1. Card images are proxied through the app
+and transformed by Cloudflare Images.
 
 ## Run locally
 
-Requires Node.js `>=22.13.0`.
+Requires Bun and Node.js `>=22.13.0`.
 
 ```bash
 bun install
+bun run db:migrate:local
+export PLAYER_COOKIE_SECRET="$(openssl rand -hex 32)"
 bun run dev
 ```
+
+`db:migrate:local` is idempotent and applies `drizzle/*.sql` to the same
+project-local Miniflare state used by the development server.
 
 ## Verify
 
 ```bash
 bun run test
 bun run lint
+bunx tsc --noEmit
 ```
 
-The page is deployed through Sites using the project declaration in
-`.openai/hosting.json`. D1 and R2 are intentionally disabled for this phase.
+The test command builds the production Worker, server-renders the real current
+pack, and exercises vote insertion, duplicate prevention, reveal restoration,
+sharing metrics, and player-data deletion against an isolated SQLite-backed D1
+adapter.
+
+## Content
+
+From the repository root:
+
+```bash
+p1p1 schedule
+```
+
+This consumes every available `out/queue.<SET>.json`, interleaves sets, dedupes
+pack IDs and top-two matchups globally, and appends UTC-dated entries without
+changing previously scheduled days.
+
+## Deploy
+
+The Sites declaration is `.openai/hosting.json`. Production requires:
+
+- D1 binding `DB`, with the generated `drizzle/*.sql` migrations applied;
+- Cloudflare Images binding `IMAGES`;
+- a secret `PLAYER_COOKIE_SECRET` containing at least 32 characters.
+
+Do not commit the cookie secret. `vite.config.ts` only forwards it to local
+Miniflare when it is present in the process environment.
+
+Draft data: [17Lands public datasets](https://www.17lands.com/public_datasets),
+CC BY 4.0. Card data and images: [Scryfall](https://scryfall.com). P1P1 is
+unofficial Fan Content and is not approved or endorsed by Wizards of the Coast.
