@@ -48,9 +48,9 @@ From the repository root:
 p1p1 schedule
 ```
 
-This consumes every available `out/queue.<SET>.json`, interleaves sets, dedupes
+This consumes every supported `out/queue.<SET>.json`, interleaves sets, dedupes
 pack IDs and top-two matchups globally, and appends UTC-dated entries without
-changing previously scheduled days.
+changing previously scheduled days. Alchemy-only queue artifacts are ignored.
 
 ## Deploy
 

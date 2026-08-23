@@ -42,16 +42,15 @@ one latent pick-utility `θ` per card. The likelihood is convex, so L-BFGS finds
 the global optimum in seconds.
 
 This matters more than it might look. Distinct 14-card packs vastly outnumber
-observed drafts — in HBG, 36,322 of 36,330 observed packs were unique — so you
-**cannot** answer "what did the crowd pick from this pack" by counting. The model
-generalizes to packs nobody ever saw, which is what makes a day-one seeded
-answer key possible before you have a single user.
+observed drafts, so you **cannot** answer "what did the crowd pick from this
+pack" by counting. The model generalizes to packs nobody ever saw, which is what
+makes a day-one seeded answer key possible before you have a single user.
 
-Sanity check: held-out top-1 accuracy **66.9%** on HBG and **62.1%** on LTR,
-against a 7.1% random baseline — it calls the crowd's actual pick about two
-times in three. Accuracy alone wouldn't justify printing "37% of players took
-this", so `p1p1 validate` also checks calibration; predicted shares track
-observed frequencies closely across the whole range on both sets.
+Sanity check: held-out top-1 accuracy is **62.1%** on LTR against a 7.1% random
+baseline — it calls the crowd's actual pick about two times in three. Accuracy
+alone wouldn't justify printing "37% of players took this", so `p1p1 validate`
+also checks calibration; predicted shares track observed frequencies across the
+whole range.
 
 **3. Win rates.** The draft files say what the crowd *picked*, never whether the
 pick was any good. That comes from the separate 17Lands game-data export — one
@@ -113,9 +112,14 @@ Four things vary across sets and are detected at runtime rather than assumed:
   The win-rate pass derives the geometry from the header and proves the card
   order matches across kinds before trusting a single number.
 
-That makes **32 of 32 sets usable**.
+That makes **31 of 31 supported non-Alchemy sets usable**.
 
 ## Caveats
+
+* **Alchemy-only sets are excluded.** The pipeline rejects them at direct CLI
+  entrypoints, filters them from refreshed 17Lands listings, and omits any stale
+  queue artifacts from the daily schedule.
+  New draft products require explicit non-Alchemy approval before support.
 
 * **GIH win rate is a measurement, not a verdict.** It says how a card performed
   once it was in hand, which is confounded by deck and by player: strong drafters

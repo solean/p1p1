@@ -215,6 +215,11 @@ def main(argv: list[str] | None = None) -> int:
     s.set_defaults(func=cmd_sets)
 
     args = ap.parse_args(argv)
+    if hasattr(args, "set"):
+        try:
+            args.set = sets.require_supported(args.set)
+        except ValueError as error:
+            ap.error(str(error))
     args.func(args)
     return 0
 

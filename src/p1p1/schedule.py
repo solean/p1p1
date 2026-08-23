@@ -8,6 +8,8 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+from . import sets
+
 SCHEDULE_VERSION = 1
 ATTRIBUTION = {
     "draft_data": {
@@ -103,6 +105,8 @@ def _load_candidates(queue_dir: Path, data_dir: Path) -> dict[str, list[dict[str
     for queue_path in sorted(queue_dir.glob("queue.*.json")):
         queue = _load_json(queue_path)
         set_code = str(queue.get("set") or "").upper()
+        if not sets.is_supported(set_code):
+            continue
         packs = queue.get("packs")
         if not set_code or not isinstance(packs, list):
             raise ValueError(f"{queue_path}: expected set and packs")
@@ -125,6 +129,9 @@ def _validate_existing(schedule: dict[str, Any]) -> list[dict[str, Any]]:
 
     previous: date | None = None
     for day in days:
+        set_code = str(day.get("set") or "").upper()
+        if not sets.is_supported(set_code):
+            raise ValueError(f"existing schedule contains unsupported set {set_code}")
         current = date.fromisoformat(day["date"])
         if previous is not None and current != previous + timedelta(days=1):
             raise ValueError("existing schedule dates must be contiguous and ascending")

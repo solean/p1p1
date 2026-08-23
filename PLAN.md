@@ -22,10 +22,9 @@ Phase 0 answered the riskiest content question — *can you reliably produce fir
 picks people genuinely disagree about?* — and the answer is yes, with room to
 spare:
 
-* **~40% of real packs** clear the "contested" bar (13.9k of 36.3k in HBG, 24.9k
-  of 60k in LTR).
-* **All 32 Arena sets** are usable.
-* At 90 packs per set that's **~2,900 daily puzzles, or 7.9 years** of content,
+* **~41% of real packs** clear the "contested" bar (24.9k of 60k in LTR).
+* **All 31 supported non-Alchemy Arena sets** are usable.
+* At 90 packs per set that's **~2,800 daily puzzles, or 7.6 years** of content,
   and the eligible pool is an order of magnitude larger than that.
 
 Content supply is not a risk. Everything below is about whether anyone plays.
@@ -42,9 +41,10 @@ and share text that cannot disagree between players in different timezones.
 Local midnight is friendlier locally but would require per-timezone puzzle keys
 and split tallies.
 
-**Rotate across all Arena-drafted sets.** Nostalgia is a feature — an LTR or KTK
-pack lands differently than the current Standard set. 32 sets is deep enough to
-rotate for years without repeating.
+**Rotate across all non-Alchemy Arena-drafted sets.** Nostalgia is a feature —
+an LTR or KTK pack lands differently than the current Standard set. The 31
+supported sets are deep enough to rotate for years without repeating.
+Alchemy-only products are deliberately outside the product.
 
 **Packs are curated, not random.** A random P1P1 is usually boring: one obvious
 bomb and the game is over. The pipeline generates thousands of candidates and
@@ -118,7 +118,7 @@ doesn't work and no amount of backend fixes it.
 The shape is a lookup, not a computation: immutable puzzle content ships in the
 deploy bundle; only the site's own vote split is dynamic.
 
-**2a. Content schedule — shipped.** `p1p1 schedule` consumes every
+**2a. Content schedule — shipped.** `p1p1 schedule` consumes every supported
 `out/queue.<SET>.json`, assigns a stable hash ID to each pack, interleaves sets,
 dedupes pack IDs and top-two matchups globally, assigns UTC dates, and writes
 `content/schedule.json`. Re-running appends without moving shipped days. The
@@ -187,8 +187,9 @@ social. Wordle survived this; not worth engineering around.
 **Set-data rot.** Five sets (`AFR, STX, TMT, ECL, TLA`) ship without a P1P1 row —
 Arena only logs the opening pack after P1P2, and that back-fill is missing from
 their exports. Ingest rebuilds the pack from the second-pick row's pool, so all
-32 sets are usable, but the shape of the defect could change: it isn't
-chronological (TMT/ECL/TLA are recent), so new sets need re-checking as they ship.
+31 supported non-Alchemy sets are usable, but the shape of the defect could
+change: it isn't chronological (TMT/ECL/TLA are recent), so new sets need
+re-checking as they ship.
 
 **Silent staleness.** Every expensive artifact — extracted picks, fitted model,
 Scryfall metadata — is reused whenever the file exists, with no key on the inputs
