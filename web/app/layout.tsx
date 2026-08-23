@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { headers } from "next/headers";
 import "./globals.css";
+import { utcDate } from "@/lib/schedule";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -26,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const forwardedProtocol = requestHeaders.get("x-forwarded-proto");
   const protocol = forwardedProtocol ?? (host.startsWith("localhost") ? "http" : "https");
   const origin = new URL(`${protocol.split(",")[0]}://${host.split(",")[0]}`);
-  const socialImage = new URL("/og.png", origin).toString();
+  const socialImage = new URL(`/api/og/${utcDate()}`, origin).toString();
 
   return {
     metadataBase: origin,
@@ -41,8 +42,8 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [
         {
           url: socialImage,
-          width: 1731,
-          height: 909,
+          width: 1200,
+          height: 630,
           alt: "P1P1 — One pack. One pick.",
         },
       ],
