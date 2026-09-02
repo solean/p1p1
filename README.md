@@ -112,7 +112,9 @@ Four things vary across sets and are detected at runtime rather than assumed:
   The win-rate pass derives the geometry from the header and proves the card
   order matches across kinds before trusting a single number.
 
-That makes **31 of 31 supported non-Alchemy sets usable**.
+That makes **31 approved non-Alchemy sets usable**. HOB is approved as the
+newest set, but 17Lands has not yet published its permitted public draft and
+game-data exports; curation remains unavailable until those files exist.
 
 ## Caveats
 

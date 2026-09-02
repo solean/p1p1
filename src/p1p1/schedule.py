@@ -1,4 +1,4 @@
-"""Build the immutable UTC schedule consumed by the daily game."""
+"""Build the UTC schedule while keeping published puzzles immutable."""
 
 from __future__ import annotations
 
@@ -144,30 +144,37 @@ def build_schedule(
     data_dir: Path,
     out_path: Path,
     start_date: date | None = None,
+    today: date | None = None,
 ) -> tuple[int, int]:
-    """Append every unseen pack without changing an existing scheduled day."""
+    """Keep published days and rebuild future puzzles in newest-set-first rounds."""
+    today = today or datetime.now(timezone.utc).date()
     queues = _load_candidates(queue_dir, data_dir)
     if out_path.exists():
         existing = _load_json(out_path)
-        days = _validate_existing(existing)
+        existing_days = _validate_existing(existing)
         if start_date is not None:
             raise ValueError("--start is only valid when creating a new schedule")
+        days = [
+            day
+            for day in existing_days
+            if date.fromisoformat(day["date"]) <= today
+        ]
     else:
         days = []
-
     frozen_count = len(days)
     seen_packs = {day["pack_id"] for day in days}
     seen_matchups = {tuple(day["matchup"]) for day in days}
     next_date = (
         date.fromisoformat(days[-1]["date"]) + timedelta(days=1)
         if days
-        else start_date or datetime.now(timezone.utc).date()
+        else (today + timedelta(days=1) if out_path.exists() else start_date or today)
     )
 
+    set_order = [set_code for set_code in sets.KNOWN_SETS if set_code in queues]
     positions = {set_code: 0 for set_code in queues}
     while True:
         added_this_round = False
-        for set_code in sorted(queues):
+        for set_code in set_order:
             candidates = queues[set_code]
             while positions[set_code] < len(candidates):
                 candidate = candidates[positions[set_code]]

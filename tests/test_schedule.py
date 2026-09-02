@@ -94,6 +94,33 @@ class ScheduleTests(unittest.TestCase):
         self.assertEqual(days[1]["date"], "2026-01-02")
         self.assertEqual(days[1]["set"], "STX")
 
+    def test_latest_set_replaces_unsurfaced_future_schedule(self) -> None:
+        self.write_set(
+            "LTR",
+            [pack("L1", "L2", "L3"), pack("L4", "L5", "L6")],
+        )
+        build_schedule(
+            self.queues,
+            self.data,
+            self.output,
+            start_date=date(2026, 1, 1),
+            today=date(2025, 12, 31),
+        )
+        published = self.read_days()[0]
+        self.write_set("HOB", [pack("H1", "H2", "H3")])
+        total, added = build_schedule(
+            self.queues,
+            self.data,
+            self.output,
+            today=date(2026, 1, 1),
+        )
+        days = self.read_days()
+        self.assertEqual((total, added), (3, 2))
+        self.assertEqual(days[0], published)
+        self.assertEqual(days[1]["date"], "2026-01-02")
+        self.assertEqual(days[1]["set"], "HOB")
+
+
     def test_excludes_alchemy_queues_and_rejects_existing_days(self) -> None:
         self.write_set("HBG", [pack("H1", "H2", "H3")])
         self.write_set("LTR", [pack("L1", "L2", "L3")])

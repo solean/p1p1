@@ -12,8 +12,9 @@ class FakeResponse:
 
 
 class FakeSession:
-    def __init__(self, html: str) -> None:
+    def __init__(self, html: str, available: set[str] | None = None) -> None:
         self.html = html
+        self.available = available
         self.head_called = False
 
     def get(self, url: str, timeout: int) -> FakeResponse:
@@ -21,10 +22,19 @@ class FakeSession:
 
     def head(self, url: str, timeout: int) -> FakeResponse:
         self.head_called = True
-        return FakeResponse(status_code=200)
+        available = self.available is None or any(
+            f".{code}." in url for code in self.available
+        )
+        return FakeResponse(status_code=200 if available else 403)
 
 
 class SetPolicyTests(unittest.TestCase):
+    def test_hobbit_is_approved(self) -> None:
+        self.assertEqual(sets.KNOWN_SETS[0], "HOB")
+        self.assertTrue(sets.is_supported("hob"))
+        self.assertEqual(sets.require_supported("hob"), "HOB")
+        self.assertIn("draft_data_public.HOB.PremierDraft", sets.draft_data_url("HOB"))
+
     def test_alchemy_only_sets_are_rejected(self) -> None:
         self.assertNotIn("HBG", sets.KNOWN_SETS)
         self.assertFalse(sets.is_supported("hbg"))
@@ -40,6 +50,7 @@ class SetPolicyTests(unittest.TestCase):
         html = " ".join(
             [
                 "draft_data_public.LTR.PremierDraft",
+                "draft_data_public.HOB.PremierDraft",
                 "draft_data_public.HBG.PremierDraft",
                 "draft_data_public.Arena_Cube.PremierDraft",
                 "draft_data_public.STX.PremierDraft",
@@ -48,9 +59,15 @@ class SetPolicyTests(unittest.TestCase):
         )
         session = FakeSession(html)
 
-        self.assertEqual(sets.refresh_sets(session), ["LTR", "STX"])
+        self.assertEqual(sets.refresh_sets(session), ["LTR", "HOB", "STX"])
         self.assertFalse(sets.exists("HBG", session))
         self.assertFalse(session.head_called)
+
+    def test_refresh_probes_exports_when_catalog_has_no_static_links(self) -> None:
+        session = FakeSession("", available={"LTR", "STX"})
+        self.assertEqual(sets.refresh_sets(session), ["LTR", "STX"])
+        self.assertTrue(session.head_called)
+
 
 
 if __name__ == "__main__":

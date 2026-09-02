@@ -19,10 +19,10 @@ ALCHEMY_ONLY_SETS = frozenset({"HBG"})
 # Sets with PremierDraft draft data, newest first. Cube entries are excluded:
 # their "packs" aren't boosters and the card pool isn't stable.
 KNOWN_SETS = [
-    "MSH", "SOS", "TMT", "ECL", "TLA", "EOE", "FIN", "TDM", "DFT", "PIO",
-    "FDN", "DSK", "BLB", "MH3", "OTJ", "MKM", "KTK", "LCI", "WOE", "LTR",
-    "MOM", "SIR", "ONE", "BRO", "DMU", "SNC", "NEO", "VOW", "MID", "AFR",
-    "STX",
+    "HOB", "MSH", "SOS", "TMT", "ECL", "TLA", "EOE", "FIN", "TDM", "DFT",
+    "PIO", "FDN", "DSK", "BLB", "MH3", "OTJ", "MKM", "KTK", "LCI", "WOE",
+    "LTR", "MOM", "SIR", "ONE", "BRO", "DMU", "SNC", "NEO", "VOW", "MID",
+    "AFR", "STX",
 ]
 SUPPORTED_SETS = frozenset(KNOWN_SETS)
 
@@ -64,7 +64,9 @@ def refresh_sets(session: requests.Session | None = None) -> list[str]:
         if "cube" in code.lower() or code in seen or not is_supported(code):
             continue
         seen.append(code)
-    return seen or list(KNOWN_SETS)
+    if seen:
+        return seen
+    return [code for code in KNOWN_SETS if exists(code, session)]
 
 
 def exists(set_code: str, session: requests.Session | None = None) -> bool:
